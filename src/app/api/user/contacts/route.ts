@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import WorkspaceContact from '@/models/WorkspaceContact';
+
+// Default SFMC user ID — used when auth is bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get('workspaceId');
 
     await connectMongoDB();
-    const filter: any = { userId: session.userId };
+    const filter: any = { userId: SFMC_USER_ID };
     if (workspaceId) filter.workspaceId = workspaceId;
 
     const contacts = await WorkspaceContact.find(filter).sort({ createdAt: -1 }).lean();
@@ -32,14 +31,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await request.json();
     await connectMongoDB();
 
     const contact = await WorkspaceContact.create({
-      userId: session.userId,
+      userId: SFMC_USER_ID,
       workspaceId: body.workspaceId,
       name: body.name,
       phoneNumber: body.phoneNumber,
@@ -60,15 +56,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
 
     await connectMongoDB();
-    const result = await WorkspaceContact.findOneAndDelete({ _id: id, userId: session.userId });
+    const result = await WorkspaceContact.findOneAndDelete({ _id: id, userId: SFMC_USER_ID });
     if (!result) return NextResponse.json({ error: 'Not found or permission denied' }, { status: 404 });
 
     return NextResponse.json({ success: true });
@@ -79,16 +72,13 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await request.json();
     const { id, ...updates } = body;
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
 
     await connectMongoDB();
     const updatedContact = await WorkspaceContact.findOneAndUpdate(
-      { _id: id, userId: session.userId },
+      { _id: id, userId: SFMC_USER_ID },
       { $set: updates },
       { new: true }
     );

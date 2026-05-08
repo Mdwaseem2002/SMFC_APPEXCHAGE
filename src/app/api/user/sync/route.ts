@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import UserProfile from '@/models/UserProfile';
 import User from '@/models/User';
 import Workspace from '@/models/Workspace';
 import WorkspaceContact from '@/models/WorkspaceContact';
 import FastReply from '@/models/FastReply';
 
+// Default SFMC user ID — used when auth is bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
+
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Auth bypassed — SFMC integration handles identity
+    const userId = SFMC_USER_ID;
 
     await connectMongoDB();
-    const { userId } = session;
 
     // Fetch all user data in parallel (including the auth User for email/name)
     const [profile, user, workspaces, contacts, fastReplies] = await Promise.all([
       UserProfile.findOne({ userId }).lean(),
-      User.findById(userId).lean(),
+      User.findById(userId).lean().catch(() => null),
       Workspace.find({ userId }).sort({ createdAt: 1 }).lean(),
       WorkspaceContact.find({ userId }).sort({ createdAt: -1 }).lean(),
       FastReply.find({ userId }).sort({ shortcut: 1 }).lean(),

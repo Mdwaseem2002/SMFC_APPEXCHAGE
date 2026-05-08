@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import Workspace from '@/models/Workspace';
+
+// Default SFMC user ID — used when auth is bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await request.json();
     await connectMongoDB();
 
     const workspace = await Workspace.create({
-      userId: session.userId,
+      userId: SFMC_USER_ID,
       name: body.name,
       color: body.color || '#3b82f6',
       icon: body.icon || 'Building2',
@@ -30,16 +29,12 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
 
     await connectMongoDB();
-    // Only delete if it belongs to this user
-    const result = await Workspace.findOneAndDelete({ _id: id, userId: session.userId });
+    const result = await Workspace.findOneAndDelete({ _id: id, userId: SFMC_USER_ID });
     if (!result) return NextResponse.json({ error: 'Not found or permission denied' }, { status: 404 });
 
     return NextResponse.json({ success: true });

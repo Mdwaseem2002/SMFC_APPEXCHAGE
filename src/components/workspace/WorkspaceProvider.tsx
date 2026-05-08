@@ -49,14 +49,22 @@ function normalizePhone(phone: string | undefined | null): string {
   return String(phone).replace(/^\+/, '');
 }
 
+const DEFAULT_WORKSPACE: Workspace = {
+  id: 'default-ws',
+  name: 'Default Workspace',
+  color: '#3b82f6',
+  icon: 'Building2',
+  createdAt: new Date().toISOString(),
+};
+
 const DEFAULT_STATE: AppState = {
-  onboardingComplete: false,
+  onboardingComplete: true,
   profile: null,
-  workspaces: [],
+  workspaces: [DEFAULT_WORKSPACE],
   contacts: [],
   fastReplies: [],
-  activeWorkspaceId: null,
-  activeScreen: 'onboarding-profile',
+  activeWorkspaceId: 'default-ws',
+  activeScreen: 'dashboard',
   theme: 'light',
 };
 
@@ -65,27 +73,28 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   // Sync data from backend on mount
+  // Auth/onboarding bypassed — SFMC integration handles identity
   useEffect(() => {
     const fetchSync = async () => {
       try {
         const res = await fetch('/api/user/sync');
         if (res.ok) {
           const { data } = await res.json();
-          // Evaluate onboarding complete status based on DB having at least a profile and workspace
-          const complete = !!(data.profile && data.workspaces?.length > 0);
+          const workspaces = data.workspaces?.length > 0 ? data.workspaces : [DEFAULT_WORKSPACE];
           setState(prev => ({
             ...prev,
             profile: data.profile || null,
-            workspaces: data.workspaces || [],
+            workspaces,
             contacts: data.contacts || [],
             fastReplies: data.fastReplies || [],
-            onboardingComplete: complete,
-            activeWorkspaceId: data.workspaces?.[0]?.id || null,
-            activeScreen: complete ? 'dashboard' : 'onboarding-profile'
+            onboardingComplete: true,
+            activeWorkspaceId: workspaces[0]?.id || 'default-ws',
+            activeScreen: 'dashboard',
           }));
         }
       } catch (e) {
         console.error('Failed to sync workspace data', e);
+        // Even on failure, ensure dashboard is accessible with defaults
       } finally {
         setIsReady(true);
       }

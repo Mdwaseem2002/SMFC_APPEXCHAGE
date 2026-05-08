@@ -2,10 +2,10 @@
 
 // src/components/app/AppShell.tsx
 // Main app layout: top bar (logo + workspace switcher + user), sidebar (desktop) / bottom nav (mobile), content area
+// Authentication removed — app is integrated directly with SFMC
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { LogOut, LayoutDashboard, MessageSquare, Users2, BarChart3, Zap, Settings, Cloud, Bell, LayoutTemplate, Megaphone, Workflow } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users2, BarChart3, Zap, Settings, Cloud, LayoutTemplate, Megaphone, Workflow } from 'lucide-react';
 import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 import { useWorkspace } from '@/components/workspace/WorkspaceProvider';
 import DashboardView from '@/components/app/DashboardView';
@@ -34,10 +34,7 @@ const NAV_ITEMS: { key: AppScreen; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function AppShell() {
-  const router = useRouter();
   const { state, setActiveScreen, activeWorkspace } = useWorkspace();
-  const [currentUser, setCurrentUser] = useState<{ name: string } | null>(null);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Detect mobile
@@ -48,22 +45,9 @@ export default function AppShell() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  // Fetch current user
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then(r => r.json())
-      .then(data => { if (data.authenticated) setCurrentUser({ name: data.user.name }); })
-      .catch(() => {});
-  }, []);
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-      router.refresh();
-    } catch { setLoggingOut(false); }
-  };
+  // Derive display name from active workspace
+  const displayName = activeWorkspace?.name || 'SFMC User';
+  const initials = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   const activeScreen = state.activeScreen;
 
@@ -102,30 +86,18 @@ export default function AppShell() {
         {/* Center: Workspace Switcher */}
         <WorkspaceSwitcher />
 
-        {/* Right: Notifications + User + Logout */}
+        {/* Right: User Display */}
         <div className="flex items-center gap-2">
-          {/* Notifications removed per request */}
-
-          {currentUser && (
-            <div className="flex items-center gap-2.5">
-              <div 
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#25D366] to-[#128C7E] shadow-sm"
-              >
-                {currentUser.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
-              </div>
-              <span className="text-sm font-medium text-gray-700 hidden md:inline-block">
-                {currentUser.name}
-              </span>
+          <div className="flex items-center gap-2.5">
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white bg-gradient-to-br from-[#25D366] to-[#128C7E] shadow-sm"
+            >
+              {initials}
             </div>
-          )}
-          <button
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 ml-1"
-            title="Logout"
-          >
-            <LogOut size={17} />
-          </button>
+            <span className="text-sm font-medium text-gray-700 hidden md:inline-block">
+              {displayName}
+            </span>
+          </div>
         </div>
       </header>
 

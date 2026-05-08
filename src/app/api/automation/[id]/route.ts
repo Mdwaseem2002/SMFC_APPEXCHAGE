@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import AutomationJourney from '@/models/AutomationJourney';
+
+// Default SFMC user ID — auth bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { id } = await params;
     await connectMongoDB();
-    const journey = await AutomationJourney.findOne({ _id: id, userId: session.userId }).lean();
+    const journey = await AutomationJourney.findOne({ _id: id, userId: SFMC_USER_ID }).lean();
     if (!journey) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const doc = journey as any;
@@ -35,15 +34,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { id } = await params;
     const body = await request.json();
     await connectMongoDB();
 
     const updated = await AutomationJourney.findOneAndUpdate(
-      { _id: id, userId: session.userId },
+      { _id: id, userId: SFMC_USER_ID },
       { $set: body },
       { new: true }
     ).lean();
@@ -72,13 +68,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { id } = await params;
     await connectMongoDB();
 
-    const result = await AutomationJourney.findOneAndDelete({ _id: id, userId: session.userId });
+    const result = await AutomationJourney.findOneAndDelete({ _id: id, userId: SFMC_USER_ID });
     if (!result) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     return NextResponse.json({ success: true });

@@ -30,7 +30,7 @@ const BulkSendPanel: React.FC<BulkSendPanelProps> = ({ preSelectedTemplate }) =>
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplateName, setSelectedTemplateName] = useState('');
   const [phoneNumbers, setPhoneNumbers] = useState('');
-  const [language, setLanguage] = useState('en_US');
+  const [language, setLanguage] = useState('en');
   const [parameters, setParameters] = useState('');
   const [headerImageUrl, setHeaderImageUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -209,7 +209,7 @@ const BulkSendPanel: React.FC<BulkSendPanelProps> = ({ preSelectedTemplate }) =>
             style={inputStyle}
             onFocus={e => { e.currentTarget.style.borderColor = '#8b5cf6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.15)'; }}
             onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none'; }}
-            placeholder="en_US"
+            placeholder="en"
           />
         </div>
 

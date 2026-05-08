@@ -152,7 +152,7 @@ export async function POST(request: Request) {
       template: {
         name: templateName,
         language: {
-          code: language || 'en_US',
+          code: language || 'en',
         },
         ...(templateComponents.length > 0 && { components: templateComponents }),
       },

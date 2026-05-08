@@ -1,60 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionFromRequest } from '@/lib/auth';
 
-// Routes that don't require authentication
-const publicPaths = [
-  '/login',
-  '/signup',
-  '/privacy',
-  '/api/auth',
-  '/api/webhook',
-  '/api/jb',
-  '/api/templates',
-  '/api/send-whatsapp',
-  '/_next',
-  '/favicon.ico',
-];
+// Authentication disabled — app is now integrated directly with SFMC.
+// All routes are publicly accessible.
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
-  const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
-  const isPublic = isPublicPath || pathname === '/';
-  
-  // Check session early
-  const session = await getSessionFromRequest(request);
-
-  if (isPublic) {
-    // If user is logged in and visits the public landing page, login, or signup, redirect them to dashboard
-    if (session && (pathname === '/' || pathname === '/login' || pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    return NextResponse.next();
-  }
-
-  // Allow static files
-  if (pathname.includes('.')) {
-    return NextResponse.next();
-  }
-
-  // Check session (already fetched at the top)
-  // const session = await getSessionFromRequest(request);
-  // Allow internal webhook requests that contain the secret
-  const internalSecret = request.headers.get('x-internal-secret');
-  if (!session && internalSecret !== (process.env.JWT_SECRET || 'fallback-secret')) {
-    // For API routes, return 401
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // For pages, redirect to login
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+  // Redirect legacy auth routes to dashboard
+  if (pathname === '/login' || pathname === '/signup') {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return NextResponse.next();

@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import AutomationJourney from '@/models/AutomationJourney';
+
+// Default SFMC user ID — auth bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     await connectMongoDB();
-    const journeys = await AutomationJourney.find({ userId: session.userId })
+    const journeys = await AutomationJourney.find({ userId: SFMC_USER_ID })
       .sort({ updatedAt: -1 })
       .lean();
 
@@ -34,14 +33,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await request.json();
     await connectMongoDB();
 
     const journey = await AutomationJourney.create({
-      userId: session.userId,
+      userId: SFMC_USER_ID,
       workspaceId: body.workspaceId || '',
       name: body.name || 'New Journey',
       status: body.status || 'draft',

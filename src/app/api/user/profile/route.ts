@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import UserProfile from '@/models/UserProfile';
 import User from '@/models/User';
 
+// Default SFMC user ID — used when auth is bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
+
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     await connectMongoDB();
 
     const [profile, user] = await Promise.all([
-      UserProfile.findOne({ userId: session.userId }).lean(),
-      User.findById(session.userId).lean(),
+      UserProfile.findOne({ userId: SFMC_USER_ID }).lean(),
+      User.findById(SFMC_USER_ID).lean().catch(() => null),
     ]);
 
     const data = profile
@@ -38,9 +37,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await request.json();
     await connectMongoDB();
 
@@ -56,14 +52,14 @@ export async function POST(request: NextRequest) {
     if (body.phone !== undefined) updateFields.phone = body.phone;
 
     const profile = await UserProfile.findOneAndUpdate(
-      { userId: session.userId },
+      { userId: SFMC_USER_ID },
       { $set: updateFields },
       { new: true, upsert: true }
     ).lean();
 
     // Also update the User model name if provided
     if (body.name) {
-      await User.findByIdAndUpdate(session.userId, { name: body.name });
+      await User.findByIdAndUpdate(SFMC_USER_ID, { name: body.name }).catch(() => {});
     }
 
     const data = { ...profile, id: (profile as any)._id?.toString(), _id: undefined, __v: undefined };

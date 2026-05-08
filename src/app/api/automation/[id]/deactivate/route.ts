@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import AutomationJourney from '@/models/AutomationJourney';
 import AutomationExecution from '@/models/AutomationExecution';
 
+// Default SFMC user ID — auth bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { id } = await params;
     await connectMongoDB();
 
     await AutomationJourney.findOneAndUpdate(
-      { _id: id, userId: session.userId },
+      { _id: id, userId: SFMC_USER_ID },
       { $set: { status: 'draft' } }
     );
 

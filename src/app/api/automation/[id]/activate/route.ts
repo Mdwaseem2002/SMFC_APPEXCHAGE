@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
-import { getSessionFromRequest } from '@/lib/auth';
 import AutomationJourney from '@/models/AutomationJourney';
 import AutomationExecution from '@/models/AutomationExecution';
 import mongoose from 'mongoose';
 import WorkspaceContact from '@/models/WorkspaceContact';
 
+// Default SFMC user ID — auth bypassed
+const SFMC_USER_ID = 'sfmc-default-user';
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSessionFromRequest(request);
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const { id } = await params;
     await connectMongoDB();
 
-    const journey = await AutomationJourney.findOne({ _id: id, userId: session.userId });
+    const journey = await AutomationJourney.findOne({ _id: id, userId: SFMC_USER_ID });
     if (!journey) return NextResponse.json({ error: 'Journey not found' }, { status: 404 });
 
     // Set journey active
@@ -31,7 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const logic: string = triggerNode.config?.logic || 'AND';
 
     // Fetch contacts
-    const contactFilter: any = { userId: session.userId };
+    const contactFilter: any = { userId: SFMC_USER_ID };
     if (wsId) contactFilter.workspaceId = wsId;
     
     // Explicitly use the UserWorkspaceContact model to match the schema
@@ -68,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       contactPhone: c.phoneNumber,
       contactName: c.name || '',
       workspaceId: wsId || '',
-      userId: session.userId,
+      userId: SFMC_USER_ID,
       currentNodeId: firstNodeId,
       status: 'pending',
       executeAt: new Date(),

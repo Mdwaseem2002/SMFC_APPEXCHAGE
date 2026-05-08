@@ -1,29 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getSessionFromCookies } from '@/lib/auth';
+
+// Auth check bypassed — SFMC integration handles authentication.
+// Always returns authenticated with a default SFMC user.
 
 export async function GET() {
-  try {
-    const session = await getSessionFromCookies();
-    
-    if (!session) {
-      return NextResponse.json(
-        { authenticated: false },
-        { status: 401 }
-      );
-    }
-
-    return NextResponse.json({
-      authenticated: true,
-      user: {
-        id: session.userId,
-        name: session.userName,
-      },
-    });
-  } catch (error) {
-    console.error('Auth check error:', error);
-    return NextResponse.json(
-      { authenticated: false },
-      { status: 401 }
-    );
-  }
+  return NextResponse.json({
+    authenticated: true,
+    user: {
+      id: 'sfmc-user',
+      name: 'SFMC User',
+      email: 'sfmc@whatzupp.com',
+    },
+  });
 }

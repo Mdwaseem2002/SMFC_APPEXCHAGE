@@ -122,7 +122,7 @@ export async function POST(request: Request) {
         template: {
           name: contact.templateName,
           language: {
-            code: contact.language || 'en_US',
+            code: contact.language || 'en',
           },
           ...(templateComponents.length > 0 && { components: templateComponents }),
         },
