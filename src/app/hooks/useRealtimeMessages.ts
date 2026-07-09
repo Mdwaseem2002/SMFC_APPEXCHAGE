@@ -122,7 +122,7 @@ export function useRealtimeMessages(selectedContact: Contact | null) {
             let changed = false;
             
             fetchedContactMessages.forEach((fetchedMsg: Message) => {
-              const exists = newMessages.findIndex(m => m.id === fetchedMsg.id || (fetchedMsg.localId && m.id === fetchedMsg.localId));
+              const exists = newMessages.findIndex(m => m.id === fetchedMsg.id || ((fetchedMsg as any).localId && m.id === (fetchedMsg as any).localId));
               if (exists === -1) {
                 newMessages.push(fetchedMsg);
                 changed = true;
