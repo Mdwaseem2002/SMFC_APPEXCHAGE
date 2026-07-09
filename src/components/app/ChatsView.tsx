@@ -55,32 +55,29 @@ export default function ChatsView() {
   // For each workspace contact, check if there's a matching backend conversation
   // and use the workspace contact's name (not "Unknown" or raw phone number).
   const filteredContacts: Contact[] = useMemo(() => {
-    if (!activeWorkspace) return [];
+    // 1. If we have workspaceContacts (MongoDB enabled), apply strict workspace filtering
+    if (workspaceContacts && workspaceContacts.length > 0) {
+      return workspaceContacts.map(wc => {
+        const normPhone = normalizePhone(wc.phoneNumber);
+        const backendMatch = allBackendContacts.find(
+          bc => normalizePhone(bc.phoneNumber) === normPhone
+        );
 
-    // Build a Set of normalized workspace contact phone numbers
-    const wsPhoneSet = new Set(
-      workspaceContacts.map(c => normalizePhone(c.phoneNumber))
-    );
+        return {
+          id: backendMatch?.id || wc.id,
+          name: wc.name, 
+          phoneNumber: normPhone,
+          avatar: wc.avatar || backendMatch?.avatar,
+          online: undefined,
+          lastSeen: backendMatch?.lastSeen,
+        } as Contact;
+      });
+    }
 
-    // Create Contact entries from workspace contacts
-    // If a backend contact exists with the same phone, merge the chat data
-    return workspaceContacts.map(wc => {
-      const normPhone = normalizePhone(wc.phoneNumber);
-      // Find matching backend contact (from MongoDB conversations)
-      const backendMatch = allBackendContacts.find(
-        bc => normalizePhone(bc.phoneNumber) === normPhone
-      );
-
-      return {
-        id: backendMatch?.id || wc.id,
-        name: wc.name, // Always use workspace contact's name (never "Unknown")
-        phoneNumber: normPhone,
-        avatar: wc.avatar || backendMatch?.avatar,
-        online: undefined,
-        lastSeen: backendMatch?.lastSeen,
-      } as Contact;
-    });
-  }, [activeWorkspace, workspaceContacts, allBackendContacts]);
+    // 2. If workspaceContacts is empty (SFMC-Only mode, MongoDB disabled), 
+    // fallback to displaying all backend contacts fetched from SFMC DEs + optimistic additions
+    return allBackendContacts;
+  }, [workspaceContacts, allBackendContacts]);
 
   // Clear selected contact when workspace changes
   useEffect(() => {
@@ -135,32 +132,39 @@ export default function ChatsView() {
       })
       .catch(() => {});
 
-    // Hydrate conversations from MongoDB (reliable source with full message data)
-    fetch('/api/conversations')
+    // Hydrate conversations exclusively from SFMC Data Extensions
+    fetch('/api/sfmc/messages')
       .then(res => res.json())
       .then(data => {
-        if (data.success && data.conversations) {
+        if (data.messages && Array.isArray(data.messages)) {
           const initialMessages: Record<string, Message[]> = {};
           const backendContacts: Contact[] = [];
+          const seenPhones = new Set<string>();
 
-          data.conversations.forEach((conv: any) => {
-            const normPhone = normalizePhone(conv.phoneNumber);
+          // Sort messages by timestamp descending to get the latest message first for preview
+          const sortedMessages = [...data.messages].sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+
+          sortedMessages.forEach((msg: any) => {
+            const normPhone = normalizePhone(msg.contactKey || msg.phone);
             if (!normPhone) return;
 
-            backendContacts.push({
-              id: conv._id.toString(),
-              name: conv.contactName || normPhone,
-              phoneNumber: normPhone,
-              online: undefined
-            });
+            if (!seenPhones.has(normPhone)) {
+              seenPhones.add(normPhone);
+              backendContacts.push({
+                id: normPhone,
+                name: msg.contactName || normPhone,
+                phoneNumber: normPhone,
+                online: undefined
+              });
 
-            if (conv.lastMessage) {
               initialMessages[normPhone] = [{
-                id: 'preview-' + conv._id,
-                content: conv.lastMessage,
-                timestamp: conv.lastMessageTimestamp,
-                sender: 'contact',
-                status: MessageStatus.DELIVERED,
+                id: 'preview-' + msg.id,
+                content: msg.body,
+                timestamp: msg.timestamp,
+                sender: msg.direction === 'sent' ? 'user' : 'contact',
+                status: msg.status === 'read' ? MessageStatus.READ : msg.status === 'delivered' ? MessageStatus.DELIVERED : MessageStatus.SENT,
                 recipientId: normPhone,
                 attachments: false
               }];
@@ -180,7 +184,7 @@ export default function ChatsView() {
           });
         }
       })
-      .catch(err => console.error('Failed to hydrate conversations:', err));
+      .catch(err => console.error('Failed to hydrate conversations from SFMC:', err));
   }, []);
 
   // Real-time messages sync
@@ -199,9 +203,20 @@ export default function ChatsView() {
     }
   }, [realtimeMessages, realtimeMessagesPhone, selectedContact]);
 
-  const handleAddContact = (contact: Contact) => {
+  const handleAddContact = async (contact: Contact) => {
+    // Optimistic UI update
     setAllBackendContacts(prev => [...prev, contact]);
     setShowAddModal(false);
+
+    try {
+      await fetch('/api/sfmc/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: contact.name, phoneNumber: contact.phoneNumber })
+      });
+    } catch (err) {
+      console.error('Failed to save contact to SFMC DE:', err);
+    }
   };
 
   const handleEditContact = (updatedContact: Contact) => {

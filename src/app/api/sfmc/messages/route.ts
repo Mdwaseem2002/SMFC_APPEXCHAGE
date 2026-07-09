@@ -56,12 +56,15 @@ async function fetchDeRows(deKey: string, accessToken: string): Promise<any[]> {
 }
 
 function getFieldValue(row: any, fieldName: string): string {
-  // SFMC DE rows have keys/values structure
-  if (row.keys && row.values) {
-    return row.keys[fieldName] || row.values[fieldName] || '';
-  }
-  // Flat row
-  return row[fieldName] || '';
+  const lowerKey = fieldName.toLowerCase();
+  
+  const searchObj = (obj: any) => {
+    if (!obj) return null;
+    const key = Object.keys(obj).find(k => k.toLowerCase() === lowerKey);
+    return key ? obj[key] : null;
+  };
+
+  return searchObj(row.keys) || searchObj(row.values) || searchObj(row) || '';
 }
 
 export async function GET(request: NextRequest) {

@@ -4,12 +4,6 @@ import mongoose from 'mongoose';
 // Ensure MONGODB_URI is defined at runtime
 const MONGODB_URI = process.env.MONGODB_URI;
 
-if (!MONGODB_URI) {
-  throw new Error(
-    'Please define the MONGODB_URI environment variable inside .env.local'
-  );
-}
-
 interface CachedMongoose {
   conn: mongoose.Connection | null;
   promise: Promise<typeof mongoose> | null;
@@ -29,6 +23,10 @@ if (!globalWithMongoose.mongoose) {
 }
 
 async function connectMongoDB(): Promise<mongoose.Connection> {
+  if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI is not defined. Running in SFMC-only mode.');
+  }
+
   // Type assertion to ensure MONGODB_URI is a string
   const mongoUri = MONGODB_URI as string;
 

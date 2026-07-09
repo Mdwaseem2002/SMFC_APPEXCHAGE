@@ -214,15 +214,40 @@ export default function DashboardView() {
   const fetchRecentChats = useCallback(async () => {
     if (!activeWorkspace) return;
     try {
-      const res = await fetch('/api/conversations');
+      const res = await fetch('/api/sfmc/messages');
       const data = await res.json();
-      if (!data.success || !data.conversations) return;
+      if (!data.messages) return;
 
       const cMap = contactMap();
       const workspacePhones = new Set(activeContacts.map(c => normalizePhone(c.phoneNumber)));
+      
+      const convMap = new Map<string, any>();
+      data.messages.forEach((msg: any) => {
+        const phone = normalizePhone(msg.contactKey || msg.phone);
+        if (!phone) return;
+        
+        if (!convMap.has(phone)) {
+          convMap.set(phone, {
+            phoneNumber: phone,
+            lastMessage: msg.body,
+            lastMessageTimestamp: msg.timestamp,
+            unreadCount: msg.status === 'delivered' ? 1 : 0
+          });
+        } else {
+          // If this is a newer message, update the lastMessage
+          const existing = convMap.get(phone);
+          if (new Date(msg.timestamp) > new Date(existing.lastMessageTimestamp)) {
+             existing.lastMessage = msg.body;
+             existing.lastMessageTimestamp = msg.timestamp;
+          }
+        }
+      });
 
-      const filtered = data.conversations
+      const conversations = Array.from(convMap.values());
+
+      const filtered = conversations
         .filter((conv: any) => workspacePhones.has(normalizePhone(conv.phoneNumber)))
+        .sort((a, b) => new Date(b.lastMessageTimestamp).getTime() - new Date(a.lastMessageTimestamp).getTime())
         .slice(0, 5)
         .map((conv: any) => {
           const phone = normalizePhone(conv.phoneNumber);
@@ -236,7 +261,7 @@ export default function DashboardView() {
 
       setRecentChats(filtered);
 
-      const allWsConvs = data.conversations.filter((conv: any) =>
+      const allWsConvs = conversations.filter((conv: any) =>
         workspacePhones.has(normalizePhone(conv.phoneNumber))
       );
       setChatStats({

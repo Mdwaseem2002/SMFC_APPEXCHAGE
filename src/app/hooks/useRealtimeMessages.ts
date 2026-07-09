@@ -22,18 +22,30 @@ export function useRealtimeMessages(selectedContact: Contact | null) {
       currentPhoneRef.current = normalizedPhone;
     }
 
-    // Initial fetch from MongoDB (reliable source with full message data)
+    // Initial fetch from SFMC Data Extensions (reliable source)
     const fetchMessages = async () => {
       try {
-        const response = await fetch(`/api/messages?phoneNumber=${normalizedPhone}&limit=500`);
+        const response = await fetch(`/api/sfmc/messages?contactKey=${normalizedPhone}`);
         const data = await response.json();
         
-        // Only set messages if we're still viewing the same contact
         if (currentPhoneRef.current === normalizedPhone && data.messages && Array.isArray(data.messages)) {
-          setMessages(data.messages);
+          // Filter messages for this specific contact
+          const contactMessages = data.messages
+            .filter((m: any) => m.contactKey === normalizedPhone || m.phone === normalizedPhone)
+            .map((msg: any) => ({
+              id: msg.id,
+              content: msg.body,
+              timestamp: msg.timestamp,
+              sender: msg.direction === 'sent' ? 'user' : 'contact',
+              status: msg.status === 'read' ? 'read' : msg.status === 'delivered' ? 'delivered' : 'sent',
+              recipientId: normalizedPhone,
+            }))
+            .sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+          setMessages(contactMessages);
         }
       } catch (error) {
-        console.error('Error fetching messages:', error);
+        console.error('Error fetching messages from SFMC:', error);
       }
     };
 
@@ -90,15 +102,26 @@ export function useRealtimeMessages(selectedContact: Contact | null) {
     const pollMessages = async () => {
       if (isCancelled) return;
       try {
-        const response = await fetch(`/api/messages?phoneNumber=${normalizedPhone}&limit=50`);
+        const response = await fetch(`/api/sfmc/messages?contactKey=${normalizedPhone}`);
         const data = await response.json();
         
         if (currentPhoneRef.current === normalizedPhone && data.messages && Array.isArray(data.messages)) {
+          const fetchedContactMessages = data.messages
+            .filter((m: any) => m.contactKey === normalizedPhone || m.phone === normalizedPhone)
+            .map((msg: any) => ({
+              id: msg.id,
+              content: msg.body,
+              timestamp: msg.timestamp,
+              sender: msg.direction === 'sent' ? 'user' : 'contact',
+              status: msg.status === 'read' ? 'read' : msg.status === 'delivered' ? 'delivered' : 'sent',
+              recipientId: normalizedPhone,
+            }));
+
           setMessages(prev => {
             const newMessages = [...prev];
             let changed = false;
             
-            data.messages.forEach((fetchedMsg: Message) => {
+            fetchedContactMessages.forEach((fetchedMsg: Message) => {
               const exists = newMessages.findIndex(m => m.id === fetchedMsg.id || (fetchedMsg.localId && m.id === fetchedMsg.localId));
               if (exists === -1) {
                 newMessages.push(fetchedMsg);
