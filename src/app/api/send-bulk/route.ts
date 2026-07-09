@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import connectMongoDB from '@/lib/mongodb';
+import { writeSentMessage } from '@/lib/sfmcDE';
 import MessageModel from '@/models/Message';
 import ConversationModel from '@/models/Conversation';
 import { MessageStatus } from '@/types';
@@ -214,6 +215,24 @@ export async function POST(request: Request) {
                   message: messageData
                 })
               }).catch(err => console.error('[send-bulk] SSE emit failed:', err));
+              
+              // Write to SFMC Data Extension
+              try {
+                await writeSentMessage({
+                  WaMid: wamid,
+                  Phone: formattedPhone,
+                  TemplateName: contact.templateName,
+                  Language: contact.language || 'en',
+                  Parameters: contact.parameters ? contact.parameters.join(', ') : '',
+                  MessageContent: bodyContent,
+                  Status: 'sent',
+                  SentTime: new Date().toISOString(),
+                  Source: 'bulk_send',
+                });
+              } catch (sfmcError) {
+                console.error(`[send-bulk] SFMC DE write failed for ${formattedPhone}:`, sfmcError);
+              }
+
             } catch (dbError) {
               console.error(`[send-bulk] Error saving to MongoDB for ${formattedPhone}:`, dbError);
             }

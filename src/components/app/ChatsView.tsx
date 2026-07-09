@@ -135,7 +135,7 @@ export default function ChatsView() {
       })
       .catch(() => {});
 
-    // Hydrate conversations from backend (these are all conversations across all workspaces)
+    // Hydrate conversations from MongoDB (reliable source with full message data)
     fetch('/api/conversations')
       .then(res => res.json())
       .then(data => {
@@ -251,14 +251,8 @@ export default function ChatsView() {
     setMessages(prev => {
       const contactMessages = prev[key] || [];
       const updatedMessages = [...contactMessages, newMessage];
-      fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phoneNumber: key,
-          message: { id: newMessage.id, text: { body: content }, timestamp: Math.floor(Date.now() / 1000), from: 'user', mediaType: newMessage.mediaType, mediaId: newMessage.mediaId, mimeType: newMessage.mimeType, filename: newMessage.filename }
-        })
-      }).catch(error => console.error('Failed to store message:', error));
+      // We no longer call /api/messages here. The backend /api/send-message will handle it 
+      // with the correct wamid, preventing duplicate entries.
       return { ...prev, [key]: updatedMessages };
     });
 
@@ -271,12 +265,12 @@ export default function ChatsView() {
           message: content,
           accessToken: config.accessToken,
           phoneNumberId: config.phoneNumberId,
+          localId: newMessage.id,
           mediaId: options?.mediaId,
           mediaType: options?.mediaType,
           mimeType: options?.mimeType,
           filename: options?.filename
         }),
-
       });
 
       if (!response.ok) {
@@ -284,9 +278,12 @@ export default function ChatsView() {
         throw new Error(errData.error || 'Failed to send message');
       }
 
+      const responseData = await response.json();
+      const trueWamid = responseData.data?.messages?.[0]?.id || newMessage.id;
+
       setMessages(prev => ({
         ...prev,
-        [key]: (prev[key] || []).map(msg => msg.id === newMessage.id ? { ...msg, status: MessageStatus.SENT } : msg)
+        [key]: (prev[key] || []).map(msg => msg.id === newMessage.id ? { ...msg, id: trueWamid, status: MessageStatus.SENT } : msg)
       }));
     } catch (error) {
       console.error('Error sending message:', error);

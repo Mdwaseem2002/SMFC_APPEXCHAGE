@@ -111,8 +111,15 @@ export function useGlobalNotifications(
     let eventSource: EventSource | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+    let reconnectAttempts = 0;
+
     const connect = () => {
       eventSource = new EventSource('/api/messages/stream/global');
+
+      eventSource.onopen = () => {
+        reconnectAttempts = 0; // Reset on successful connection
+        console.log('[global-notifications] SSE connected');
+      };
 
       eventSource.onmessage = (event) => {
         try {
@@ -169,9 +176,12 @@ export function useGlobalNotifications(
       };
 
       eventSource.onerror = () => {
-        console.warn('[global-notifications] SSE error, reconnecting in 3s...');
         eventSource?.close();
-        reconnectTimer = setTimeout(connect, 3000);
+        // Exponential backoff: 1s, 2s, 4s, 8s, max 15s
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 15000);
+        reconnectAttempts++;
+        console.warn(`[global-notifications] SSE error, reconnecting in ${delay}ms (attempt ${reconnectAttempts})...`);
+        reconnectTimer = setTimeout(connect, delay);
       };
     };
 

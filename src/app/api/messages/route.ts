@@ -50,8 +50,9 @@ export async function POST(request: Request) {
       }
 
       // Prepare message data
+      const messageId = message.id || `generated_${Date.now()}`;
       const messageData: Partial<Message> = {
-        id: `${Date.now()}_${message.id || 'generated'}`,
+        id: messageId,
         content: message.text?.body || message.content || '',
         timestamp: message.timestamp
           ? new Date(Number(message.timestamp) * 1000).toISOString()
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
         status: message.status || MessageStatus.DELIVERED,
         recipientId: normalizedPhone,
         contactPhoneNumber: normalizedPhone,
-        originalId: message.id,
+        originalId: messageId,
         conversationId: normalizedPhone,
         mediaType: message.mediaType || 'text',
         mediaId: message.mediaId,
@@ -71,9 +72,12 @@ export async function POST(request: Request) {
 
       try {
         const result = await MessageModel.updateOne(
-          { id: messageData.id }, // Find by ID
-          { $setOnInsert: messageData }, // Only insert if not exists
-          { upsert: true, lean: true } // Use upsert and lean
+          { id: messageId },
+          { 
+            $setOnInsert: messageData,
+            $set: { status: messageData.status } // Update status on subsequent webhook hits
+          }, 
+          { upsert: true, lean: true }
         );
 
         // Update or create conversation
