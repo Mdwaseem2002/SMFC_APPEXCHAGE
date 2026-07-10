@@ -5,7 +5,7 @@
 // Authentication removed — app is integrated directly with SFMC
 
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, MessageSquare, Users2, BarChart3, Zap, Settings, Cloud, LayoutTemplate, Megaphone, Workflow } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Users2, BarChart3, Zap, Settings, Cloud, LayoutTemplate, Megaphone, Workflow, RefreshCw } from 'lucide-react';
 import WorkspaceSwitcher from '@/components/workspace/WorkspaceSwitcher';
 import { useWorkspace } from '@/components/workspace/WorkspaceProvider';
 import DashboardView from '@/components/app/DashboardView';
@@ -83,8 +83,17 @@ export default function AppShell() {
           </span>
         </div>
 
-        {/* Center: Workspace Switcher */}
-        <WorkspaceSwitcher />
+        {/* Center: Workspace Switcher & Refresh */}
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => window.location.reload()} 
+            className="p-1.5 rounded-lg bg-white border border-gray-200 hover:border-[#25D366]/30 hover:bg-[#25D366]/5 text-gray-500 hover:text-[#25D366] transition-all focus:outline-none focus:ring-2 focus:ring-[#25D366]/20"
+            title="Refresh App"
+          >
+            <RefreshCw size={18} />
+          </button>
+          <WorkspaceSwitcher />
+        </div>
 
         {/* Right: User Display */}
         <div className="flex items-center gap-2">
